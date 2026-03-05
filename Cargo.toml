@@ -1,11 +1,13 @@
 [package]
 name = "agent-cage"
-description = "Run your coding agent inside an isolated micro VM"
+description = "Run your coding agent inside an isolated sandbox"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
 clap = { version = "4.5.60", features = ["derive"] }
+delegate = "0.13.5"
 figment = { version = "0.10.19", features = ["yaml", "serde_yaml"] }
 serde = { version = "1.0.228", features = ["derive"] }
+serde_with = { version = "3.17.0", features = ["macros"] }
