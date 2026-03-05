@@ -5,7 +5,7 @@ use figment::{Figment, providers::Serialized};
 
 use crate::{
     args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig},
-    config::Profile, engine,
+    config::Profile,
 };
 
 /// Construct command line arguments passed to the container engine
@@ -17,6 +17,9 @@ struct EngineArgs {
     runtime: String,
     volumes: Vec<VolumeSpec>,
     work_dir: Option<String>,
+    remove: bool,
+    interactive: bool,
+    tty: bool
 }
 
 impl From<EngineArgs> for Vec<String> {
@@ -34,6 +37,9 @@ impl From<EngineArgs> for Vec<String> {
             .flat_map(|dir|
                 once("--workdir".into()).chain(once(dir))
                 ))
+        .chain(value.remove.then_some("--remove".into()))
+        .chain(value.interactive.then_some("--interactive".into()))
+        .chain(value.tty.then_some("--tty".into()))
         // Image ref
         .chain(once(value.image))
         .collect()
@@ -65,7 +71,21 @@ impl From<VolumeSpec> for Vec<String> {
 pub struct EngineConfig {
     image: String,
     cmd_line_config: ResolvedCmdLineEngineConfig,
+    ephemeral: bool,
+    terminal: bool,
 }
+
+impl EngineConfig {
+    pub fn with_ephemeral(mut self) -> Self {
+        self.ephemeral = true;
+        self
+    }
+    pub fn with_terminal(mut self) -> Self {
+        self.terminal = true;
+        self
+    }
+}
+
 
 impl EngineConfig {
     pub fn into_cmd_args(self) -> Vec<String> {
@@ -93,6 +113,9 @@ impl From<EngineConfig> for EngineArgs {
             runtime: config.cmd_line_config.runtime,
             volumes: vols,
             work_dir: work_dir,
+            remove: config.ephemeral,
+            interactive: config.terminal,
+            tty: config.terminal,
         }
     }
 }
@@ -104,6 +127,8 @@ impl Profile {
             cmd_line_config: parsed_config
                 .resolve(&self.cmd_line_config_defaults)
                 .context("Instantiate profile")?,
+            ephemeral: false,
+            terminal: false
         })
     }
 }
