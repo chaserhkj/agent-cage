@@ -97,7 +97,8 @@ impl Args {
                 let final_engine_config = profile_obj
                     .instantiate(engine_config)
                     .context("Instantiate profile to get final engine config")?;
-                println!("{:?}", final_engine_config);
+                let cmd_args = final_engine_config.into_cmd_args();
+                println!("{:#?}", cmd_args)
             }
         }
         Ok(())
