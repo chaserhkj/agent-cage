@@ -35,13 +35,49 @@ struct CreationArgs {
     profile: String,
 }
 
-/// Parts of engine config that could be overridden by command line args
-#[skip_serializing_none]
-#[derive(Parser, Debug, Serialize, Deserialize, Default)]
-pub struct CmdLineEngineConfig {
-    /// Volume mount and set current working directory onto /work, default: true
-    #[arg(short = 'w', long)]
-    pub cwd: Option<bool>,
+/// Defines a pair of structs:
+/// - A "resolvable" struct with `Option` fields for command-line overrides
+/// - A "stripped" struct with concrete types for the final resolved configuration
+macro_rules! define_resolvable_struct {
+    {
+        $(#[$struct_meta:meta])*
+        $(($(#[$stripped_struct_meta:meta])*))?
+        $name:ident, $stripped_name:ident, { 
+            $(
+                $(#[$field_meta:meta])* $field:ident: $type:ty
+            ),* $(,)? 
+        }
+    } => {
+        $(#[$struct_meta])*
+        #[skip_serializing_none]
+        #[derive(clap::Parser, Debug, Serialize, Deserialize, Default)]
+        pub struct $name {
+            $(
+                $(#[$field_meta])*
+                pub $field: Option<$type>,
+            )*
+        }
+
+        $(#[$stripped_struct_meta])*
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct $stripped_name {
+            $(
+                pub $field: $type,
+            )*
+        }
+    };
+}
+
+define_resolvable_struct! {
+    /// Parts of engine config that could be overridden by command line args
+    CmdLineEngineConfig, ResolvedCmdLineEngineConfig, {
+        /// Volume mount and set current working directory onto /work, default: true
+        #[arg(short = 'w', long)]
+        cwd: bool,
+        /// Runtime to use with container engine, default: krun
+        #[arg(short, long)]
+        runtime: String,
+    }
 }
 
 impl Args {

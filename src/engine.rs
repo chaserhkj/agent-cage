@@ -1,19 +1,36 @@
 use anyhow::{Context, Result};
 use figment::{Figment, providers::Serialized};
 
-use crate::{args::CmdLineEngineConfig, config::Profile};
+use crate::{args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig}, config::Profile};
 
 /// Construct command line arguments passed to the container engine
 /// Current only support podman as container engine
 
 #[derive(Debug)]
-struct EngineArgs {}
+struct EngineArgs {
+    image: String,
+    volumes: Vec<VolumeSpec>,
+    work_dir: Option<String>,
+}
+
+#[derive(Debug)]
+struct VolumeSpec {
+    src: String,
+    dst: String,
+    flag: Option<String>,
+}
 
 #[derive(Debug)]
 pub struct EngineConfig {
     image: String,
-    cmd_line_config: CmdLineEngineConfig,
+    cmd_line_config: ResolvedCmdLineEngineConfig,
 }
+
+// impl Into<EngineArgs> for EngineConfig {
+//     fn into(self) -> EngineArgs {
+        
+//     }
+// }
 
 impl Profile {
     pub fn instantiate(&self, parsed_config: &CmdLineEngineConfig) -> Result<EngineConfig> {
@@ -29,14 +46,17 @@ impl Profile {
 impl CmdLineEngineConfig {
     /// Baseline defaults
     fn base() -> Self {
-        Self { cwd: Some(true) }
+        Self { 
+            cwd: Some(true),
+            runtime: Some("krun".into()),
+        }
     }
     /// Resolves command line engine config from, in priority ascending order:
     ///   Base config defined above
     ///   Passed in defaults (as parsed from profile config)
     ///   Values stored in current config struct (as parsed from command line)
-    pub fn resolve(&self, defaults: &Self) -> Result<Self> {
-        let result: Self = Figment::new()
+    pub fn resolve(&self, defaults: &Self) -> Result<ResolvedCmdLineEngineConfig> {
+        let result  = Figment::new()
             .merge(Serialized::defaults(Self::base()))
             .merge(Serialized::defaults(defaults))
             .merge(Serialized::defaults(self))
