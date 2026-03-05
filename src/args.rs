@@ -1,8 +1,19 @@
-use clap::{Parser};
+use std::path::PathBuf;
+
+use clap::{Parser,Subcommand};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
-pub enum Args {
+pub struct Args {
+    #[arg(short, long, global = true)]
+    pub config: Option<PathBuf>,
+
+    #[command(subcommand)]
+    pub sub_command: SubCommand,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SubCommand {
     /// Run an ephemeral sandbox that is removed at exit
     Run {
         #[command(flatten)]
