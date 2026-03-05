@@ -42,10 +42,10 @@ macro_rules! define_resolvable_struct {
     {
         $(#[$struct_meta:meta])*
         $(($(#[$stripped_struct_meta:meta])*))?
-        $name:ident, $stripped_name:ident, { 
+        $name:ident, $stripped_name:ident, {
             $(
                 $(#[$field_meta:meta])* $field:ident: $type:ty
-            ),* $(,)? 
+            ),* $(,)?
         }
     } => {
         $(#[$struct_meta])*
