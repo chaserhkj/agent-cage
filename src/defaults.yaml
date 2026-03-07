@@ -1,0 +1,15 @@
+profiles:
+  aider:
+    image: nixery.dev/shell/nix/busybox/aider-chat
+    envs:
+      # All nixery image needs to set HOME and USER
+      - HOME=/root
+      - USER=root
+  opencode:
+    image: nixery.dev/shell/nix/busybox/opencode
+    envs:
+      # All nixery image needs to set HOME and USER
+      - HOME=/root
+      - USER=root
+    volumes:
+      - ${HOME}/.config/opencode:/root/.config/opencode:ro

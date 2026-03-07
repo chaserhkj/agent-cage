@@ -31,11 +31,7 @@ impl Config {
     }
 }
 
-static DEFAULT_CONFIG: &'static str = r#"
-profiles:
-    aider:
-        image: nixery.dev/shell/nix/busybox/aider-chat
-"#;
+static DEFAULT_CONFIG: &'static str = include_str!("./defaults.yaml");
 
 fn contextual_config() -> Figment {
     let mut contextual_config_files = Vec::new();
@@ -52,7 +48,7 @@ fn contextual_config() -> Figment {
         .iter()
         .rev()
         .fold(Figment::new(), |f, config| {
-            f.merge(YamlWithRel::new(config))
+            f.admerge(YamlWithRel::new(config))
         })
 }
 
@@ -69,10 +65,10 @@ where
         config_manager = config_manager.merge(Yaml::string(DEFAULT_CONFIG))
     }
     if parse_contextual {
-        config_manager = config_manager.merge(contextual_config())
+        config_manager = config_manager.admerge(contextual_config())
     }
     if let Some(file_name) = config_file.as_ref() {
-        config_manager = config_manager.merge(YamlWithRel::new(file_name.as_ref()))
+        config_manager = config_manager.admerge(YamlWithRel::new(file_name.as_ref()))
     }
     Ok(config_manager
         .extract()
