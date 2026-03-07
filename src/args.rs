@@ -78,7 +78,7 @@ define_resolvable_struct! {
         #[arg(short, long)]
         runtime: String,
         /// Terminal connection types, direct or telnet.
-        /// Use telnet to connect to krun isolated terminal, since krun pty handling 
+        /// Use telnet to connect to krun isolated terminal, since krun pty handling
         /// is still very inconsistent. Default: telnet
         #[arg(short, long, value_enum)]
         terminal_connection_type: TermConnectionType,
@@ -89,12 +89,22 @@ define_resolvable_struct! {
         /// Accepts single string, parsed as shell line
         #[arg(short = 'C', long)]
         command: String,
+        /// Extra volumes to mount
+        #[arg(short, long)]
+        volumes: Vec<String>,
+        /// Extra environment variables to set
+        #[arg[short, long]]
+        envs: Vec<String>,
+        /// Read in a file of environment variables
+        #[arg[short = 'E', long]]
+        env_file: String,
     }
 }
 
 #[derive(Debug, ValueEnum, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TermConnectionType {
-    Direct, Telnet
+    Direct,
+    Telnet,
 }
 
 impl Args {

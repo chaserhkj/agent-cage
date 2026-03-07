@@ -17,6 +17,8 @@ struct EngineArgs {
     name: Option<String>,
     runtime: String,
     volumes: Vec<String>,
+    envs: Vec<String>,
+    env_file: Option<String>,
     ports: Vec<String>,
     work_dir: Option<String>,
     remove: bool,
@@ -29,33 +31,55 @@ struct EngineArgs {
 impl From<EngineArgs> for Vec<String> {
     fn from(value: EngineArgs) -> Self {
         // --runtime <runtime>
-        value.name.into_iter()
-        .flat_map(|n|
-            once("--name".into()).chain(once(n)))
-        .chain(once("--runtime".into()))
-        .chain(once(value.runtime))
-        // Volume flags, chained together
-        .chain(
-            value.volumes.into_iter()
-            .flat_map(|v| once("--volume".into()).chain(once(v))))
-        // Port flags, chained together
-        .chain(
-            value.ports.into_iter()
-            .flat_map(|p| once("--publish".into()).chain(once(p))))
-        // --workdir <workdir>
-        .chain(
-            value.work_dir.into_iter()
-            .flat_map(|dir|
-                once("--workdir".into()).chain(once(dir))
-                ))
-        .chain(value.remove.then_some("--remove".into()))
-        .chain(value.interactive.then_some("--interactive".into()))
-        .chain(value.tty.then_some("--tty".into()))
-        .chain(value.detach.then_some("--detach".into()))
-        // Image ref
-        .chain(once(value.image))
-        .chain(value.command.into_iter())
-        .collect()
+        value
+            .name
+            .into_iter()
+            .flat_map(|n| once("--name".into()).chain(once(n)))
+            .chain(once("--runtime".into()))
+            .chain(once(value.runtime))
+            // Volume flags, chained together
+            .chain(
+                value
+                    .volumes
+                    .into_iter()
+                    .flat_map(|v| once("--volume".into()).chain(once(v))),
+            )
+            // Environment flags, chained together
+            .chain(
+                value
+                    .envs
+                    .into_iter()
+                    .flat_map(|e| once("--env".into()).chain(once(e))),
+            )
+            // Environment file
+            .chain(
+                value
+                    .env_file
+                    .into_iter()
+                    .flat_map(|fp| once("--env-file".into()).chain(once(fp))),
+            )
+            // Port flags, chained together
+            .chain(
+                value
+                    .ports
+                    .into_iter()
+                    .flat_map(|p| once("--publish".into()).chain(once(p))),
+            )
+            // --workdir <workdir>
+            .chain(
+                value
+                    .work_dir
+                    .into_iter()
+                    .flat_map(|dir| once("--workdir".into()).chain(once(dir))),
+            )
+            .chain(value.remove.then_some("--remove".into()))
+            .chain(value.interactive.then_some("--interactive".into()))
+            .chain(value.tty.then_some("--tty".into()))
+            .chain(value.detach.then_some("--detach".into()))
+            // Image ref
+            .chain(once(value.image))
+            .chain(value.command.into_iter())
+            .collect()
     }
 }
 
@@ -67,9 +91,11 @@ pub struct EngineConfig {
     ephemeral: bool,
 }
 
-fn sub_env<S>(string: S) -> String where S: AsRef<str> {
-    subst::substitute(string.as_ref(), &subst::Env)
-        .unwrap_or(string.as_ref().into())
+fn sub_env<S>(string: S) -> String
+where
+    S: AsRef<str>,
+{
+    subst::substitute(string.as_ref(), &subst::Env).unwrap_or(string.as_ref().into())
 }
 
 impl EngineConfig {
@@ -78,12 +104,13 @@ impl EngineConfig {
         self
     }
     pub fn with_name<S>(mut self, name: S) -> Self
-        where S: AsRef<str> {
+    where
+        S: AsRef<str>,
+    {
         self.name = Some(name.as_ref().to_string());
         self
     }
 }
-
 
 impl EngineConfig {
     pub fn into_cmd_args(self) -> Vec<String> {
@@ -94,7 +121,12 @@ impl EngineConfig {
 
 impl From<EngineConfig> for EngineArgs {
     fn from(config: EngineConfig) -> Self {
-        let mut volumes = Vec::new();
+        let mut volumes: Vec<_> = config
+            .cmd_line_config
+            .volumes
+            .into_iter()
+            .map(|s| sub_env(s))
+            .collect();
         let work_dir = if config.cmd_line_config.cwd {
             volumes.push(".:/work".into());
             Some("/work".into())
@@ -102,36 +134,52 @@ impl From<EngineConfig> for EngineArgs {
             None
         };
 
+        let envs: Vec<_> = config
+            .cmd_line_config
+            .envs
+            .into_iter()
+            .map(|e| sub_env(e))
+            .collect();
+
         let mut ports = Vec::new();
         if config.cmd_line_config.terminal_connection_type == TermConnectionType::Telnet {
             ports.push(format!("{}:23", config.cmd_line_config.telnet_bind));
         }
 
-        let use_terminal = config.cmd_line_config.terminal_connection_type == TermConnectionType::Direct;
-        let override_commands = 
+        let use_terminal =
+            config.cmd_line_config.terminal_connection_type == TermConnectionType::Direct;
+        let override_commands =
             shell_words::split(&config.cmd_line_config.command).unwrap_or(vec![]);
         let raw_command = if override_commands.is_empty() {
             match config.cmd_line_config.terminal_connection_type {
                 TermConnectionType::Direct => vec!["bash".into()],
-                TermConnectionType::Telnet => vec![
-                    "busybox", "telnetd", "-F", "-l", "bash"
-                ].into_iter().map(|s| s.into()).collect()
+                TermConnectionType::Telnet => vec!["busybox", "telnetd", "-F", "-l", "bash"]
+                    .into_iter()
+                    .map(|s| s.into())
+                    .collect(),
             }
-        } else { override_commands };
-        let command = raw_command.into_iter().map(|s| sub_env(s))
-            .collect();
+        } else {
+            override_commands
+        };
+        let command = raw_command.into_iter().map(|s| sub_env(s)).collect();
         Self {
             image: config.image,
             name: config.name,
             runtime: config.cmd_line_config.runtime,
             volumes,
+            envs,
+            env_file: if config.cmd_line_config.env_file.is_empty() {
+                None
+            } else {
+                Some(config.cmd_line_config.env_file)
+            },
             ports,
             work_dir,
             remove: config.ephemeral,
             interactive: use_terminal,
             tty: use_terminal,
-            detach: ! use_terminal,
-            command
+            detach: !use_terminal,
+            command,
         }
     }
 }
@@ -158,6 +206,9 @@ impl CmdLineEngineConfig {
             terminal_connection_type: Some(TermConnectionType::Telnet),
             telnet_bind: Some("127.0.0.1:2323".into()),
             command: Some(String::new()),
+            volumes: Some(Vec::new()),
+            envs: Some(Vec::new()),
+            env_file: Some(String::new()),
         }
     }
     /// Resolves command line engine config from, in priority ascending order:
@@ -167,8 +218,8 @@ impl CmdLineEngineConfig {
     pub fn resolve(&self, defaults: &Self) -> Result<ResolvedCmdLineEngineConfig> {
         let result = Figment::new()
             .merge(Serialized::defaults(Self::base()))
-            .merge(Serialized::defaults(defaults))
-            .merge(Serialized::defaults(self))
+            .admerge(Serialized::defaults(defaults))
+            .admerge(Serialized::defaults(self))
             .extract()
             .context("Resolve command line engine config")?;
         Ok(result)

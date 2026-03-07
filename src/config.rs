@@ -31,7 +31,7 @@ impl Config {
     }
 }
 
-static DEFAULT_CONFIG : &'static str  = r#"
+static DEFAULT_CONFIG: &'static str = r#"
 profiles:
     aider:
         image: nixery.dev/shell/nix/busybox/aider-chat
