@@ -4,7 +4,7 @@ use std::{collections::HashMap, path::Path};
 
 use figment::{
     Figment,
-    providers::{Format, Serialized, Yaml},
+    providers::{Format, Yaml},
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,25 +31,17 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            profiles: HashMap::from([(
-                "aider".into(),
-                Profile {
-                    image: "nixery.dev/shell/nix/aider-chat".into(),
-                    cmd_line_config_defaults: CmdLineEngineConfig::default(),
-                },
-            )]),
-        }
-    }
-}
+static DEFAULT_CONFIG : &'static str  = r#"
+profiles:
+    aider:
+        image: nixery.dev/shell/nix/busybox/aider-chat
+"#;
 
 pub fn parse_config<P>(config_file: Option<P>) -> Result<Config>
 where
     P: AsRef<Path>,
 {
-    let mut config_manager = Figment::new().merge(Serialized::defaults(Config::default()));
+    let mut config_manager = Figment::new().merge(Yaml::string(DEFAULT_CONFIG));
     if let Some(path) = config_file {
         config_manager = config_manager.merge(Yaml::file(path));
     }
