@@ -11,7 +11,15 @@ use serde_with::skip_serializing_none;
 pub struct Args {
     /// Path to config.yaml, omit to use embedded defaults
     #[arg(short, long, global = true)]
-    pub config: Option<PathBuf>,
+    config: Option<PathBuf>,
+
+    /// Disable read of contextual configurations (agent-cage.yaml in parent folder tree)
+    #[arg(long, global = true)]
+    no_contextual_config: bool,
+
+    /// Disable read of default configurations
+    #[arg(long, global = true)]
+    no_default_config: bool,
 
     #[command(subcommand)]
     sub_command: SubCommand,
@@ -109,7 +117,11 @@ pub enum TermConnectionType {
 
 impl Args {
     pub fn exec(self) -> Result<()> {
-        let global_config = parse_config(self.config.as_ref())?;
+        let global_config = parse_config(
+            self.config.as_ref(),
+            !self.no_default_config,
+            !self.no_contextual_config,
+        )?;
         match &self.sub_command {
             SubCommand::Run {
                 container_args:

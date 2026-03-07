@@ -1,6 +1,7 @@
 mod args;
 mod config;
 mod engine;
+mod rel_provider;
 
 use anyhow::Result;
 use args::Args;

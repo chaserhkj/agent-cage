@@ -8,7 +8,7 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::args::CmdLineEngineConfig;
+use crate::{args::CmdLineEngineConfig, rel_provider::YamlWithRel};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Profile {
@@ -37,13 +37,42 @@ profiles:
         image: nixery.dev/shell/nix/busybox/aider-chat
 "#;
 
-pub fn parse_config<P>(config_file: Option<P>) -> Result<Config>
+fn contextual_config() -> Figment {
+    let mut contextual_config_files = Vec::new();
+    let cwd = std::env::current_dir().ok();
+    let mut current_dir = cwd.as_deref();
+    while let Some(dir) = current_dir {
+        let config_file = dir.join("agent-cage.yaml");
+        if config_file.is_file() {
+            contextual_config_files.push(config_file)
+        }
+        current_dir = dir.parent();
+    }
+    contextual_config_files
+        .iter()
+        .rev()
+        .fold(Figment::new(), |f, config| {
+            f.merge(YamlWithRel::new(config))
+        })
+}
+
+pub fn parse_config<P>(
+    config_file: Option<P>,
+    parse_default: bool,
+    parse_contextual: bool,
+) -> Result<Config>
 where
     P: AsRef<Path>,
 {
-    let mut config_manager = Figment::new().merge(Yaml::string(DEFAULT_CONFIG));
-    if let Some(path) = config_file {
-        config_manager = config_manager.merge(Yaml::file(path));
+    let mut config_manager = Figment::new();
+    if parse_default {
+        config_manager = config_manager.merge(Yaml::string(DEFAULT_CONFIG))
+    }
+    if parse_contextual {
+        config_manager = config_manager.merge(contextual_config())
+    }
+    if let Some(file_name) = config_file.as_ref() {
+        config_manager = config_manager.merge(YamlWithRel::new(file_name.as_ref()))
     }
     Ok(config_manager
         .extract()
