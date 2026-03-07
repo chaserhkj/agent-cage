@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::config::parse_config;
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -77,7 +77,24 @@ define_resolvable_struct! {
         /// Runtime to use with container engine, default: krun
         #[arg(short, long)]
         runtime: String,
+        /// Terminal connection types, direct or telnet.
+        /// Use telnet to connect to krun isolated terminal, since krun pty handling 
+        /// is still very inconsistent. Default: telnet
+        #[arg(short, long, value_enum)]
+        terminal_connection_type: TermConnectionType,
+        /// Bind address for telnet terminal connection, default: 127.0.0.1:2323
+        #[arg(short = 'T', long)]
+        telnet_bind: String,
+        /// Command to execute in container, overrides default as set by terminal connection type.
+        /// Accepts single string, parsed as shell line
+        #[arg(short = 'C', long)]
+        command: String,
     }
+}
+
+#[derive(Debug, ValueEnum, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TermConnectionType {
+    Direct, Telnet
 }
 
 impl Args {
@@ -97,7 +114,8 @@ impl Args {
                 let final_engine_config = profile_obj
                     .instantiate(engine_config)
                     .context("Instantiate profile to get final engine config")?
-                    .with_ephemeral().with_terminal();
+                    .with_ephemeral()
+                    .with_name(format!("agent-cage-{}", profile));
                 let cmd_args = final_engine_config.into_cmd_args();
                 println!("{:#?}", cmd_args)
             }

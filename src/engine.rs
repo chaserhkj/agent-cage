@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use figment::{Figment, providers::Serialized};
 
 use crate::{
-    args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig},
+    args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig, TermConnectionType},
     config::Profile,
 };
 
@@ -14,23 +14,34 @@ use crate::{
 #[derive(Debug)]
 struct EngineArgs {
     image: String,
+    name: Option<String>,
     runtime: String,
-    volumes: Vec<VolumeSpec>,
+    volumes: Vec<String>,
+    ports: Vec<String>,
     work_dir: Option<String>,
     remove: bool,
     interactive: bool,
-    tty: bool
+    tty: bool,
+    detach: bool,
+    command: Vec<String>,
 }
 
 impl From<EngineArgs> for Vec<String> {
     fn from(value: EngineArgs) -> Self {
         // --runtime <runtime>
-        once("--runtime".into())
+        value.name.into_iter()
+        .flat_map(|n|
+            once("--name".into()).chain(once(n)))
+        .chain(once("--runtime".into()))
         .chain(once(value.runtime))
         // Volume flags, chained together
         .chain(
             value.volumes.into_iter()
-            .flat_map(|v| Vec::from(v)))
+            .flat_map(|v| once("--volume".into()).chain(once(v))))
+        // Port flags, chained together
+        .chain(
+            value.ports.into_iter()
+            .flat_map(|p| once("--publish".into()).chain(once(p))))
         // --workdir <workdir>
         .chain(
             value.work_dir.into_iter()
@@ -40,39 +51,25 @@ impl From<EngineArgs> for Vec<String> {
         .chain(value.remove.then_some("--remove".into()))
         .chain(value.interactive.then_some("--interactive".into()))
         .chain(value.tty.then_some("--tty".into()))
+        .chain(value.detach.then_some("--detach".into()))
         // Image ref
         .chain(once(value.image))
+        .chain(value.command.into_iter())
         .collect()
-    }
-}
-
-#[derive(Debug)]
-struct VolumeSpec {
-    src: String,
-    dst: String,
-    flag: Option<String>,
-}
-
-impl From<VolumeSpec> for Vec<String> {
-    fn from(value: VolumeSpec) -> Self {
-        vec![
-            "--volume".into(),
-            format!(
-                "{}:{}{}",
-                value.src,
-                value.dst,
-                value.flag.map(|f| format!(":{}", f)).unwrap_or("".into())
-            ),
-        ]
     }
 }
 
 #[derive(Debug)]
 pub struct EngineConfig {
     image: String,
+    name: Option<String>,
     cmd_line_config: ResolvedCmdLineEngineConfig,
     ephemeral: bool,
-    terminal: bool,
+}
+
+fn sub_env<S>(string: S) -> String where S: AsRef<str> {
+    subst::substitute(string.as_ref(), &subst::Env)
+        .unwrap_or(string.as_ref().into())
 }
 
 impl EngineConfig {
@@ -80,8 +77,9 @@ impl EngineConfig {
         self.ephemeral = true;
         self
     }
-    pub fn with_terminal(mut self) -> Self {
-        self.terminal = true;
+    pub fn with_name<S>(mut self, name: S) -> Self
+        where S: AsRef<str> {
+        self.name = Some(name.as_ref().to_string());
         self
     }
 }
@@ -96,26 +94,44 @@ impl EngineConfig {
 
 impl From<EngineConfig> for EngineArgs {
     fn from(config: EngineConfig) -> Self {
-        let mut vols = Vec::new();
+        let mut volumes = Vec::new();
         let work_dir = if config.cmd_line_config.cwd {
-            vols.push(VolumeSpec {
-                src: ".".into(),
-                dst: "/work".into(),
-                flag: None,
-            });
+            volumes.push(".:/work".into());
             Some("/work".into())
         } else {
             None
         };
 
+        let mut ports = Vec::new();
+        if config.cmd_line_config.terminal_connection_type == TermConnectionType::Telnet {
+            ports.push(format!("{}:23", config.cmd_line_config.telnet_bind));
+        }
+
+        let use_terminal = config.cmd_line_config.terminal_connection_type == TermConnectionType::Direct;
+        let override_commands = 
+            shell_words::split(&config.cmd_line_config.command).unwrap_or(vec![]);
+        let raw_command = if override_commands.is_empty() {
+            match config.cmd_line_config.terminal_connection_type {
+                TermConnectionType::Direct => vec!["bash".into()],
+                TermConnectionType::Telnet => vec![
+                    "busybox", "telnetd", "-F", "-l", "bash"
+                ].into_iter().map(|s| s.into()).collect()
+            }
+        } else { override_commands };
+        let command = raw_command.into_iter().map(|s| sub_env(s))
+            .collect();
         Self {
             image: config.image,
+            name: config.name,
             runtime: config.cmd_line_config.runtime,
-            volumes: vols,
-            work_dir: work_dir,
+            volumes,
+            ports,
+            work_dir,
             remove: config.ephemeral,
-            interactive: config.terminal,
-            tty: config.terminal,
+            interactive: use_terminal,
+            tty: use_terminal,
+            detach: ! use_terminal,
+            command
         }
     }
 }
@@ -124,11 +140,11 @@ impl Profile {
     pub fn instantiate(&self, parsed_config: &CmdLineEngineConfig) -> Result<EngineConfig> {
         Ok(EngineConfig {
             image: self.image.to_owned(),
+            name: None,
             cmd_line_config: parsed_config
                 .resolve(&self.cmd_line_config_defaults)
                 .context("Instantiate profile")?,
             ephemeral: false,
-            terminal: false
         })
     }
 }
@@ -139,6 +155,9 @@ impl CmdLineEngineConfig {
         Self {
             cwd: Some(true),
             runtime: Some("krun".into()),
+            terminal_connection_type: Some(TermConnectionType::Telnet),
+            telnet_bind: Some("127.0.0.1:2323".into()),
+            command: Some(String::new()),
         }
     }
     /// Resolves command line engine config from, in priority ascending order:

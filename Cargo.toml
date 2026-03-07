@@ -11,3 +11,5 @@ delegate = "0.13.5"
 figment = { version = "0.10.19", features = ["yaml", "serde_yaml"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_with = { version = "3.17.0", features = ["macros"] }
+shell-words = "1.1.1"
+subst = "0.3.8"
