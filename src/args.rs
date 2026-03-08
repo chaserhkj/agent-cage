@@ -9,7 +9,8 @@ use serde_with::skip_serializing_none;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
-    /// Path to config.yaml, omit to use embedded defaults
+    /// Path to configuration yaml file. This file will be overlaid on default and contextual
+    /// configurations. See also --no-contextual-config, --no-default-config
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 
@@ -79,15 +80,13 @@ macro_rules! define_resolvable_struct {
 define_resolvable_struct! {
     /// Parts of engine config that could be overridden by command line args
     CmdLineEngineConfig, ResolvedCmdLineEngineConfig, {
-        /// Volume mount and set current working directory onto /work, default: true
-        #[arg(short = 'w', long)]
-        cwd: bool,
+        /// Volume mount and set current working directory onto /work, default: tmp-overlay-git
+        #[arg(short, long, value_enum)]
+        working_dir_mode: WorkingDirMode,
         /// Runtime to use with container engine, default: krun
         #[arg(short, long)]
         runtime: String,
-        /// Terminal connection types, direct or telnet.
-        /// Use telnet to connect to krun isolated terminal, since krun pty handling
-        /// is still very inconsistent. Default: telnet
+        /// Terminal connection type, default: telnet
         #[arg(short, long, value_enum)]
         terminal_connection_type: TermConnectionType,
         /// Bind address for telnet terminal connection, default: 127.0.0.1:2323
@@ -109,10 +108,60 @@ define_resolvable_struct! {
     }
 }
 
-#[derive(Debug, ValueEnum, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, ValueEnum, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TermConnectionType {
+    /// Use direct pty allocation, be aware that pty sharing across krun boundary
+    /// is unstable and may break your terminal
     Direct,
+    /// Use telnet to connect terminal, requires busybox for the underlying image.
+    /// This is recommended for krun. Also see --telnet-bind
     Telnet,
+}
+
+#[derive(Debug, ValueEnum, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum WorkingDirMode {
+    /// Do not set volume mount and working dir at all
+    Disable,
+    /// Mount and set current working dir to /work, with full read write access
+    ReadWrite,
+    /// Mount and set current working dir to /work, with read only access
+    ReadOnly,
+    /// Mount an ephemeral overlay on top of current working dir and use as /work.
+    /// Note that any changes not manually saved elsewhere will be discarded once
+    /// container is deleted.
+    TmpOverlay,
+    /// Mount an ephemeral overlay on .git of current working dir, and expose everything
+    /// else to the sandbox. Requires to be run in a git repo. Note that any local git
+    /// operations will be discarded once container is deleted.
+    TmpOverlayGit
+}
+
+impl WorkingDirMode {
+    pub fn to_volume_mounts(self) -> Vec<String> {
+        match self {
+            Self::Disable => Vec::new(),
+            Self::ReadWrite => vec![
+                ".:/work".into()
+            ],
+            Self::ReadOnly => vec![
+                ".:/work:ro".into()
+            ],
+            Self::TmpOverlay => vec![
+                ".:/work:O".into()
+            ],
+            Self::TmpOverlayGit => vec![
+                ".:/work".into(),
+                "./.git:/work/.git:O".into()
+            ]
+        }
+    }
+    pub fn to_work_dir(self) -> Option<String> {
+        if let Self::Disable = self {
+            None
+        } else {
+            Some("/work".into())
+        }
+    }
 }
 
 impl Args {

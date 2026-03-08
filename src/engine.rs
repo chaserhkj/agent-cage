@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use figment::{Figment, providers::Serialized};
 
 use crate::{
-    args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig, TermConnectionType},
+    args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig, TermConnectionType, WorkingDirMode},
     config::Profile,
 };
 
@@ -127,12 +127,8 @@ impl From<EngineConfig> for EngineArgs {
             .into_iter()
             .map(|s| sub_env(s))
             .collect();
-        let work_dir = if config.cmd_line_config.cwd {
-            volumes.push(".:/work".into());
-            Some("/work".into())
-        } else {
-            None
-        };
+        volumes.extend(config.cmd_line_config.working_dir_mode.to_volume_mounts());
+        let work_dir = config.cmd_line_config.working_dir_mode.to_work_dir();
 
         let envs: Vec<_> = config
             .cmd_line_config
@@ -201,7 +197,7 @@ impl CmdLineEngineConfig {
     /// Baseline defaults
     fn base() -> Self {
         Self {
-            cwd: Some(true),
+            working_dir_mode: Some(WorkingDirMode::TmpOverlayGit),
             runtime: Some("krun".into()),
             terminal_connection_type: Some(TermConnectionType::Telnet),
             telnet_bind: Some("127.0.0.1:2323".into()),
