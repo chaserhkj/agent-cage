@@ -131,8 +131,8 @@ pub enum WorkingDirMode {
     /// container is deleted.
     TmpOverlay,
     /// Mount an ephemeral overlay on .git of current working dir, and expose everything
-    /// else to the sandbox. Requires to be run in a git repo. Note that any local git
-    /// operations will be discarded once container is deleted.
+    /// else to the sandbox. Requires to be run in the root of a git repo. Note that any
+    /// local git operations will be discarded once container is deleted.
     TmpOverlayGit
 }
 
