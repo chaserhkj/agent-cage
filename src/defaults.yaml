@@ -5,6 +5,8 @@ profiles:
       # All nixery image needs to set HOME and USER
       - HOME=/root
       - USER=root
+    volumes:
+      - ${HOME}/.aider.conf.yml:/root/.aider.conf.yml:ro
   opencode:
     image: nixery.dev/shell/nix/busybox/opencode
     envs:
