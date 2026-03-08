@@ -6,7 +6,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-clap = { version = "4.5.60", features = ["derive"] }
+clap = { version = "4.5.60", features = ["derive", "wrap_help"] }
 delegate = "0.13.5"
 figment = { version = "0.10.19", features = ["yaml", "serde_yaml"] }
 serde = { version = "1.0.228", features = ["derive"] }
