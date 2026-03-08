@@ -80,9 +80,9 @@ macro_rules! define_resolvable_struct {
 define_resolvable_struct! {
     /// Parts of engine config that could be overridden by command line args
     CmdLineEngineConfig, ResolvedCmdLineEngineConfig, {
-        /// Volume mount and set current working directory onto /work, default: tmp-overlay-git
+        /// Mode of operation to handle working dir, default: tmp-overlay-git
         #[arg(short, long, value_enum)]
-        working_dir_mode: WorkingDirMode,
+        mode: OpMode,
         /// Runtime to use with container engine, default: krun
         #[arg(short, long)]
         runtime: String,
@@ -119,7 +119,7 @@ pub enum TermConnectionType {
 }
 
 #[derive(Debug, ValueEnum, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WorkingDirMode {
+pub enum OpMode {
     /// Do not set volume mount and working dir at all
     Disable,
     /// Mount and set current working dir to /work, with full read write access
@@ -142,7 +142,7 @@ pub enum WorkingDirMode {
     IsolatedGitRepo
 }
 
-impl WorkingDirMode {
+impl OpMode {
     pub fn to_volume_mounts(self) -> Vec<String> {
         match self {
             Self::Disable => Vec::new(),

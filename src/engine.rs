@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow};
 use figment::{Figment, providers::Serialized};
 
 use crate::{
-    args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig, TermConnectionType, WorkingDirMode},
+    args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig, TermConnectionType, OpMode},
     config::Profile,
 };
 
@@ -122,8 +122,8 @@ static ISOLATED_GIT_REPO_PREPARE_SCRIPT: &'static str = include_str!("./prepare-
 impl EngineConfig {
     /// Runs prepare procedures according to config
     pub fn run_prepare(&self) -> Result<()> {
-        match self.cmd_line_config.working_dir_mode {
-            WorkingDirMode::IsolatedGitRepo => {
+        match self.cmd_line_config.mode {
+            OpMode::IsolatedGitRepo => {
                 run_in_foreground("/bin/sh", ["-c", ISOLATED_GIT_REPO_PREPARE_SCRIPT], false)
             }
             _ => {Ok(())}
@@ -157,8 +157,8 @@ impl From<EngineConfig> for EngineArgs {
             .into_iter()
             .map(|s| sub_env(s))
             .collect();
-        volumes.extend(config.cmd_line_config.working_dir_mode.to_volume_mounts());
-        let work_dir = config.cmd_line_config.working_dir_mode.to_work_dir();
+        volumes.extend(config.cmd_line_config.mode.to_volume_mounts());
+        let work_dir = config.cmd_line_config.mode.to_work_dir();
 
         let envs: Vec<_> = config
             .cmd_line_config
@@ -227,7 +227,7 @@ impl CmdLineEngineConfig {
     /// Baseline defaults
     fn base() -> Self {
         Self {
-            working_dir_mode: Some(WorkingDirMode::TmpOverlayGit),
+            mode: Some(OpMode::TmpOverlayGit),
             runtime: Some("krun".into()),
             terminal_connection_type: Some(TermConnectionType::Telnet),
             telnet_bind: Some("127.0.0.1:2323".into()),
