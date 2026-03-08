@@ -133,7 +133,13 @@ pub enum WorkingDirMode {
     /// Mount an ephemeral overlay on .git of current working dir, and expose everything
     /// else to the sandbox. Requires to be run in the root of a git repo. Note that any
     /// local git operations will be discarded once container is deleted.
-    TmpOverlayGit
+    TmpOverlayGit,
+    /// Creates an isolated git repo for the agent to work on. This mode creates a nested
+    /// git repo agent-cage-repo in current directory, then tracks it via remote "agent-cage-repo"
+    /// and tracks its main branch via branch "agent-cage" in the current git repo. This 
+    /// gives agents a completely isolated git repo without external references to work on
+    /// and makes current repo able to push-to/pull-from agent repo on "agent-cage" branch
+    IsolatedGitRepo
 }
 
 impl WorkingDirMode {
@@ -152,6 +158,9 @@ impl WorkingDirMode {
             Self::TmpOverlayGit => vec![
                 ".:/work".into(),
                 "./.git:/work/.git:O".into()
+            ],
+            Self::IsolatedGitRepo => vec![
+                "./agent-cage-repo:/work".into()
             ]
         }
     }
@@ -187,6 +196,7 @@ impl Args {
                     .context("Instantiate profile to get final engine config")?
                     .with_ephemeral()
                     .with_name(format!("agent-cage-{}", profile));
+                final_engine_config.run_prepare().context("Run prepare scripts")?;
                 let cmd_args = final_engine_config.into_cmd_args();
                 println!("{:#?}", cmd_args)
             }
