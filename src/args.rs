@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::config::parse_config;
+use crate::{utils, config::parse_config};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,9 @@ enum SubCommand {
         #[command(flatten)]
         container_args: CreationArgs,
     },
+    /// Cleans up isolated git repo as created by isolated-git-repo
+    /// mode
+    Cleanup,
 }
 
 /// Common args for creating a sandbox
@@ -177,6 +180,8 @@ impl OpMode {
     }
 }
 
+static ISOLATED_GIT_REPO_CLEANUP_SCRIPT: &'static str = include_str!("./cleanup-isolated-git-repo.sh");
+
 impl Args {
     pub fn exec(self) -> Result<()> {
         let global_config = parse_config(
@@ -206,6 +211,11 @@ impl Args {
                 if !self.dry_run {
                     final_engine_config.run()?;
                 }
+            },
+            SubCommand::Cleanup => {
+                utils::run_in_foreground("/bin/sh", [
+                    "-c", ISOLATED_GIT_REPO_CLEANUP_SCRIPT
+                ], true).context("Call isolated git repo cleanup script")?;
             }
         }
         Ok(())

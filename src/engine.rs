@@ -1,11 +1,11 @@
 use std::iter::once;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use figment::{Figment, providers::Serialized};
 
 use crate::{
     args::{CmdLineEngineConfig, ResolvedCmdLineEngineConfig, TermConnectionType, OpMode},
-    config::Profile,
+    config::Profile, utils::run_in_foreground,
 };
 
 /// Construct command line arguments passed to the container engine
@@ -97,24 +97,6 @@ where
     S: AsRef<str>,
 {
     subst::substitute(string.as_ref(), &subst::Env).unwrap_or(string.as_ref().into())
-}
-
-/// Run child process in foreground and waiting for it to return
-fn run_in_foreground<'a, I>(command: &str, args: I, ignore_rtn_code: bool) -> Result<()> 
-where I: IntoIterator<Item = &'a str>
-{
-    let mut proc = std::process::Command::new(command)
-        .args(args)
-        .stdin(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .spawn().context("Spawn child process to run in foreground")?;
-    let status = proc.wait().context("Wait for child process to return from foreground")?;
-    if status.success() || ignore_rtn_code {
-        Ok(())
-    } else {
-        Err(anyhow!("Foreground child process failed with status: {}", status))
-    }
 }
 
 static ISOLATED_GIT_REPO_PREPARE_SCRIPT: &'static str = include_str!("./prepare-isolated-git-repo.sh");
