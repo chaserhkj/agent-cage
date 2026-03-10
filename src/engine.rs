@@ -72,7 +72,7 @@ impl From<EngineArgs> for Vec<String> {
                     .into_iter()
                     .flat_map(|dir| once("--workdir".into()).chain(once(dir))),
             )
-            .chain(value.remove.then_some("--remove".into()))
+            .chain(value.remove.then_some("--rm".into()))
             .chain(value.interactive.then_some("--interactive".into()))
             .chain(value.tty.then_some("--tty".into()))
             .chain(value.detach.then_some("--detach".into()))
