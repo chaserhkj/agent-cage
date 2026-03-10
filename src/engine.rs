@@ -83,7 +83,7 @@ impl From<EngineArgs> for Vec<String> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EngineConfig {
     image: String,
     name: Option<String>,
@@ -129,6 +129,14 @@ impl EngineConfig {
             _ => {Ok(())}
         }
     }
+    /// Run the engine
+    pub fn run(&self) -> Result<()>  {
+        let args : Vec<_> = 
+            once("run".into()).chain(
+                self.to_cmd_args()
+            ).collect();
+        run_in_foreground("podman", args.iter().map(|s| s.as_str()), true)
+    }
     pub fn with_ephemeral(mut self) -> Self {
         self.ephemeral = true;
         self
@@ -143,8 +151,8 @@ impl EngineConfig {
 }
 
 impl EngineConfig {
-    pub fn into_cmd_args(self) -> Vec<String> {
-        let engine_args: EngineArgs = self.into();
+    pub fn to_cmd_args(&self) -> Vec<String> {
+        let engine_args: EngineArgs = self.clone().into();
         Vec::from(engine_args)
     }
 }

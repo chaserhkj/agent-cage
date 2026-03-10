@@ -59,7 +59,7 @@ macro_rules! define_resolvable_struct {
     } => {
         $(#[$struct_meta])*
         #[skip_serializing_none]
-        #[derive(clap::Parser, Debug, Serialize, Deserialize, Default)]
+        #[derive(clap::Parser, Debug, Serialize, Deserialize, Default, Clone)]
         pub struct $name {
             $(
                 $(#[$field_meta])*
@@ -68,7 +68,7 @@ macro_rules! define_resolvable_struct {
         }
 
         $(#[$stripped_struct_meta])*
-        #[derive(Debug, Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize, Clone)]
         pub struct $stripped_name {
             $(
                 pub $field: $type,
@@ -197,8 +197,9 @@ impl Args {
                     .with_ephemeral()
                     .with_name(format!("agent-cage-{}", profile));
                 final_engine_config.run_prepare().context("Run prepare scripts")?;
-                let cmd_args = final_engine_config.into_cmd_args();
-                println!("{:#?}", cmd_args)
+                let cmd_args = final_engine_config.to_cmd_args();
+                println!("Resolved podman args: {:#?}", cmd_args);
+                final_engine_config.run()?;
             }
         }
         Ok(())
