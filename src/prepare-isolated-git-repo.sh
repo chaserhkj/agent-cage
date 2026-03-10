@@ -1,5 +1,5 @@
 set -e
-[ -d ./agent-cage-repo ] && echo "agent-cage-repo/ already present, skipping preparation"
+[ -d ./agent-cage-repo ] && { echo "agent-cage-repo/ already present, skipping preparation"; exit 0; }
 echo "preparing isolated git repo at agent-cage-repo/"
 set -x
 mkdir ./agent-cage-repo
