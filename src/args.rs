@@ -48,6 +48,7 @@ struct CreationArgs {
     #[command(flatten)]
     engine_config: CmdLineEngineConfig,
     /// Profile to run
+    #[arg(default_value = "default")]
     profile: String,
 }
 
