@@ -112,7 +112,10 @@ define_resolvable_struct! {
         envs: Vec<String>,
         /// Read in a file of environment variables
         #[arg[short = 'E', long]]
-        env_file: String,
+        env_file: Option<String>,
+        /// Override entrypoint of the container, useful for adding startup hooks
+        #[arg[short = 'N', long]]
+        entrypoint: Option<String>,
     }
 }
 

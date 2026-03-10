@@ -26,6 +26,7 @@ struct EngineArgs {
     tty: bool,
     detach: bool,
     command: Vec<String>,
+    entrypoint: Option<String>,
 }
 
 impl From<EngineArgs> for Vec<String> {
@@ -76,6 +77,13 @@ impl From<EngineArgs> for Vec<String> {
             .chain(value.interactive.then_some("--interactive".into()))
             .chain(value.tty.then_some("--tty".into()))
             .chain(value.detach.then_some("--detach".into()))
+            // --entrypoint <single_entrypoint>
+            .chain(
+                value
+                    .entrypoint
+                    .into_iter()
+                    .flat_map(|fp| once("--entrypoint".into()).chain(once(fp))),
+            )
             // Image ref
             .chain(once(value.image))
             .chain(value.command.into_iter())
@@ -184,11 +192,7 @@ impl From<EngineConfig> for EngineArgs {
             runtime: config.cmd_line_config.runtime,
             volumes,
             envs,
-            env_file: if config.cmd_line_config.env_file.is_empty() {
-                None
-            } else {
-                Some(config.cmd_line_config.env_file)
-            },
+            env_file: config.cmd_line_config.env_file,
             ports,
             work_dir,
             remove: config.ephemeral,
@@ -196,6 +200,7 @@ impl From<EngineConfig> for EngineArgs {
             tty: use_terminal,
             detach: !use_terminal,
             command,
+            entrypoint: config.cmd_line_config.entrypoint
         }
     }
 }
@@ -224,7 +229,8 @@ impl CmdLineEngineConfig {
             command: Some(String::new()),
             volumes: Some(Vec::new()),
             envs: Some(Vec::new()),
-            env_file: Some(String::new()),
+            env_file: Some(None),
+            entrypoint: Some(None)
         }
     }
     /// Resolves command line engine config from, in priority ascending order:
