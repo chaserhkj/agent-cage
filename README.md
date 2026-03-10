@@ -14,7 +14,7 @@ agent-cage is a Rust CLI tool that executes AI coding agents (such as Aider or O
 - **Configuration layering**: Merge default, contextual, and user-provided configurations
 - **Built-in profiles**: Pre-configured profiles for Aider and Opencode agents
 
-## Installation
+## Build
 
 ```bash
 cargo build --release
@@ -35,9 +35,6 @@ agent-cage run --config config.yaml
 # Run with ephemeral overlay mode
 agent-cage run --mode tmp-overlay
 
-# Use telnet terminal connection
-agent-cage run --terminal-connection-type telnet --telnet-bind 127.0.0.1:2323
-
 # Cleanup isolated git repo
 agent-cage cleanup
 ```
@@ -45,8 +42,9 @@ agent-cage cleanup
 ## Configuration
 
 Configuration is loaded from multiple sources in order of precedence:
-1. Default configuration (`defaults.yaml`)
-2. Contextual configurations (`agent-cage.yaml` in parent directories)
+
+1. Default configuration (embedded, as in `src/defaults.yaml`)
+2. Contextual configurations (`agent-cage.yaml` in current and parent directories)
 3. User-provided config file (`--config`)
 
 Example configuration:
@@ -54,10 +52,7 @@ Example configuration:
 ```yaml
 profiles:
   my-agent:
-    image: nixery.dev/shell/nix/busybox/my-agent
-    envs:
-      - HOME=/root
-      - USER=root
+    image: docker.io/author/my-agent
     volumes:
       - ~/.config/my-agent:/root/.config/my-agent:ro
 ```
