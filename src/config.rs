@@ -1,10 +1,9 @@
 use anyhow::{Context, Result};
-use delegate::delegate;
 use std::{collections::HashMap, path::Path};
 
 use figment::{
     Figment,
-    providers::{Format, Yaml},
+    providers::{Format, Yaml, Serialized},
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,14 +19,24 @@ pub struct Profile {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     profiles: HashMap<String, Profile>,
+    global: Option<CmdLineEngineConfig>,
 }
 
 impl Config {
-    delegate! {
-        to self.profiles {
-            #[call(get)]
-            pub fn get_profile(&self, name: &String) -> Option<&Profile>;
+    pub fn get_merged_profile(&self, name: &String) -> Option<Profile> {
+        let Some(profile) = self.profiles.get(name) else {
+            return None;
+        };
+        let mut profile_config_manager =
+            Figment::new().merge(Serialized::defaults(profile));
+        if let Some(ref global_config) = self.global {
+            profile_config_manager = profile_config_manager.adjoin(Serialized::defaults(global_config));
         }
+        Some(Profile {
+            image: profile.image.clone(),
+            cmd_line_config_defaults: profile_config_manager.extract().ok()?
+        })
+
     }
 }
 

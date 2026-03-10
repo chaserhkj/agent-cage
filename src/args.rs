@@ -22,6 +22,10 @@ pub struct Args {
     #[arg(long, global = true)]
     no_default_config: bool,
 
+    /// Print engine args only, do not run engine
+    #[arg(short, long, global = true)]
+    dry_run: bool,
+
     #[command(subcommand)]
     sub_command: SubCommand,
 }
@@ -189,7 +193,7 @@ impl Args {
                     },
             } => {
                 let profile_obj = global_config
-                    .get_profile(profile)
+                    .get_merged_profile(profile)
                     .context(format!("Look up profile {} in global config", profile))?;
                 let final_engine_config = profile_obj
                     .instantiate(engine_config)
@@ -199,7 +203,9 @@ impl Args {
                 final_engine_config.run_prepare().context("Run prepare scripts")?;
                 let cmd_args = final_engine_config.to_cmd_args();
                 println!("Resolved podman args: {:#?}", cmd_args);
-                final_engine_config.run()?;
+                if !self.dry_run {
+                    final_engine_config.run()?;
+                }
             }
         }
         Ok(())
