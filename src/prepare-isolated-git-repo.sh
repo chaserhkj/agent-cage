@@ -10,4 +10,4 @@ mkdir ./agent-cage-repo
     git config receive.denyCurrentBranch updateInstead
 )
 git remote add agent-cage-repo ./agent-cage-repo
-git push -u agent-cage-repo main
+git push agent-cage-repo main
