@@ -36,6 +36,9 @@ enum SubCommand {
     Run {
         #[command(flatten)]
         container_args: CreationArgs,
+        /// Instance name to append to the container name
+        #[arg(default_value = "")]
+        instance_name: String,
     },
     /// Cleans up isolated git repo as created by isolated-git-repo
     /// mode
@@ -195,6 +198,7 @@ impl Args {
         )?;
         match &self.sub_command {
             SubCommand::Run {
+                instance_name,
                 container_args:
                     CreationArgs {
                         engine_config,
@@ -208,7 +212,10 @@ impl Args {
                     .instantiate(engine_config)
                     .context("Instantiate profile to get final engine config")?
                     .with_ephemeral()
-                    .with_name(format!("agent-cage-{}", profile));
+                    .with_name(format!("agent-cage-{}{}",
+                        profile,
+                        if instance_name.is_empty() { String::new() } else { format!("-{}", instance_name) }
+                    ));
                 final_engine_config.run_prepare().context("Run prepare scripts")?;
                 let cmd_args = final_engine_config.to_cmd_args();
                 println!("Resolved podman args: {:#?}", cmd_args);
