@@ -149,13 +149,14 @@ impl EngineConfig {
 
 impl From<EngineConfig> for EngineArgs {
     fn from(config: EngineConfig) -> Self {
-        let mut volumes: Vec<_> = config
+        let ext_volumes: Vec<_> = config
             .cmd_line_config
             .volumes
             .into_iter()
             .map(|s| sub_env(s))
             .collect();
-        volumes.extend(config.cmd_line_config.mode.to_volume_mounts());
+        let mut volumes = config.cmd_line_config.mode.to_volume_mounts();
+        volumes.extend(ext_volumes);
         let work_dir = config.cmd_line_config.mode.to_work_dir();
 
         let envs: Vec<_> = config
