@@ -103,6 +103,11 @@ define_resolvable_struct! {
         /// Bind address for telnet terminal connection, default: 127.0.0.1:2323
         #[arg(short = 'T', long)]
         telnet_bind: String,
+        /// Wrapper command, for any command executed in container, these commands
+        /// will be prepended as wrappers before execution.
+        /// Accepts single sting, parsed as shell line
+        #[arg(short = 'W', long)]
+        wrapper_command: String,
         /// Command to execute in container, overrides default as set by terminal connection type.
         /// Accepts single string, parsed as shell line
         #[arg(short = 'C', long)]

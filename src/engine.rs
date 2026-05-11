@@ -26,6 +26,7 @@ struct EngineArgs {
     tty: bool,
     detach: bool,
     command: Vec<String>,
+    wrapper_command: Vec<String>,
     entrypoint: Option<String>,
 }
 
@@ -86,6 +87,7 @@ impl From<EngineArgs> for Vec<String> {
             )
             // Image ref
             .chain(once(value.image))
+            .chain(value.wrapper_command.into_iter())
             .chain(value.command.into_iter())
             .collect()
     }
@@ -170,6 +172,7 @@ impl From<EngineConfig> for EngineArgs {
         if config.cmd_line_config.terminal_connection_type == TermConnectionType::Telnet {
             ports.push(format!("{}:23", config.cmd_line_config.telnet_bind));
         }
+        let wrapper_command = shell_words::split(&config.cmd_line_config.wrapper_command).unwrap_or(vec![]);
 
         let use_terminal =
             config.cmd_line_config.terminal_connection_type == TermConnectionType::Direct;
@@ -200,6 +203,7 @@ impl From<EngineConfig> for EngineArgs {
             interactive: use_terminal,
             tty: use_terminal,
             detach: !use_terminal,
+            wrapper_command,
             command,
             entrypoint: config.cmd_line_config.entrypoint
         }
@@ -227,6 +231,7 @@ impl CmdLineEngineConfig {
             runtime: Some("krun".into()),
             terminal_connection_type: Some(TermConnectionType::Telnet),
             telnet_bind: Some("127.0.0.1:2323".into()),
+            wrapper_command: Some(String::new()),
             command: Some(String::new()),
             volumes: Some(Vec::new()),
             envs: Some(Vec::new()),
