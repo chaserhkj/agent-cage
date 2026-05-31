@@ -124,6 +124,9 @@ define_resolvable_struct! {
         /// Override entrypoint of the container, useful for adding startup hooks
         #[arg[short = 'N', long]]
         entrypoint: Option<String>,
+        /// Paths relative to the working directory to conceal with tmpfs mounts
+        #[arg(long)]
+        hide_fs: Vec<String>,
     }
 }
 

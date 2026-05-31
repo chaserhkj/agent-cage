@@ -1,4 +1,5 @@
 use std::iter::once;
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use figment::{Figment, providers::Serialized};
@@ -17,6 +18,7 @@ struct EngineArgs {
     name: Option<String>,
     runtime: String,
     volumes: Vec<String>,
+    tmpfs: Vec<String>,
     envs: Vec<String>,
     env_file: Option<String>,
     ports: Vec<String>,
@@ -45,6 +47,13 @@ impl From<EngineArgs> for Vec<String> {
                     .volumes
                     .into_iter()
                     .flat_map(|v| once("--volume".into()).chain(once(v))),
+            )
+            // tmpfs flags, chained together
+            .chain(
+                value
+                    .tmpfs
+                    .into_iter()
+                    .flat_map(|t| once("--tmpfs".into()).chain(once(t))),
             )
             // Environment flags, chained together
             .chain(
@@ -161,6 +170,13 @@ impl From<EngineConfig> for EngineArgs {
         volumes.extend(ext_volumes);
         let work_dir = config.cmd_line_config.mode.to_work_dir();
 
+        let tmpfs: Vec<_> = config
+            .cmd_line_config
+            .hide_fs
+            .iter()
+            .map(|p| PathBuf::from("/work").join(p).display().to_string())
+            .collect();
+
         let envs: Vec<_> = config
             .cmd_line_config
             .envs
@@ -195,6 +211,7 @@ impl From<EngineConfig> for EngineArgs {
             name: config.name,
             runtime: config.cmd_line_config.runtime,
             volumes,
+            tmpfs,
             envs,
             env_file: config.cmd_line_config.env_file,
             ports,
@@ -236,7 +253,8 @@ impl CmdLineEngineConfig {
             volumes: Some(Vec::new()),
             envs: Some(Vec::new()),
             env_file: Some(None),
-            entrypoint: Some(None)
+            entrypoint: Some(None),
+            hide_fs: Some(Vec::new()),
         }
     }
     /// Resolves command line engine config from, in priority ascending order:
