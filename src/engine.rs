@@ -18,7 +18,6 @@ struct EngineArgs {
     name: Option<String>,
     runtime: String,
     volumes: Vec<String>,
-    tmpfs: Vec<String>,
     envs: Vec<String>,
     env_file: Option<String>,
     ports: Vec<String>,
@@ -47,13 +46,6 @@ impl From<EngineArgs> for Vec<String> {
                     .volumes
                     .into_iter()
                     .flat_map(|v| once("--volume".into()).chain(once(v))),
-            )
-            // tmpfs flags, chained together
-            .chain(
-                value
-                    .tmpfs
-                    .into_iter()
-                    .flat_map(|t| once("--tmpfs".into()).chain(once(t))),
             )
             // Environment flags, chained together
             .chain(
@@ -168,14 +160,17 @@ impl From<EngineConfig> for EngineArgs {
             .collect();
         let mut volumes = config.cmd_line_config.mode.to_volume_mounts();
         volumes.extend(ext_volumes);
+        // Append hide-fs entries as anonymous volumes at the end to overlay on top
+        volumes.extend(
+            config
+                .cmd_line_config
+                .hide_fs
+                .iter()
+                .map(|p| {
+                    PathBuf::from("/work").join(p).display().to_string()
+                })
+        );
         let work_dir = config.cmd_line_config.mode.to_work_dir();
-
-        let tmpfs: Vec<_> = config
-            .cmd_line_config
-            .hide_fs
-            .iter()
-            .map(|p| PathBuf::from("/work").join(p).display().to_string())
-            .collect();
 
         let envs: Vec<_> = config
             .cmd_line_config
@@ -211,7 +206,6 @@ impl From<EngineConfig> for EngineArgs {
             name: config.name,
             runtime: config.cmd_line_config.runtime,
             volumes,
-            tmpfs,
             envs,
             env_file: config.cmd_line_config.env_file,
             ports,
