@@ -1,6 +1,7 @@
-{ buildRustPackage }: buildRustPackage rec {
-  pname = "agent-cage";
+{ rustPlatform }: rustPlatform.buildRustPackage rec {
+  name = "agent-cage";
+  pname = name;
   src = ./.;
-  cargoLock.localFile = ./Cargo.lock;
+  cargoLock.lockFile = ./Cargo.lock;
   meta.mainProgram = pname;
 }
