@@ -1,3 +1,4 @@
 /target
 .vscode/
 agent-cage.yaml
+.aider*
