@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, env, path::Path};
 
 use figment::{
     Figment,
@@ -51,6 +51,10 @@ fn contextual_config() -> Figment {
         if config_file.is_file() {
             contextual_config_files.push(config_file)
         }
+        let hidden_config_file = dir.join(".agent-cage.yaml");
+        if hidden_config_file.is_file() {
+            contextual_config_files.push(hidden_config_file)
+        }
         current_dir = dir.parent();
     }
     contextual_config_files
@@ -59,6 +63,12 @@ fn contextual_config() -> Figment {
         .fold(Figment::new(), |f, config| {
             f.admerge(YamlWithRel::new(config))
         })
+}
+
+fn global_config_path() -> Option<std::path::PathBuf> {
+    let home = env::var("HOME").ok()?;
+    let path = std::path::Path::new(&home).join(".config").join("agent-cage.yaml");
+    if path.is_file() { Some(path) } else { None }
 }
 
 pub fn parse_config<P>(
@@ -75,6 +85,9 @@ where
     }
     if parse_contextual {
         config_manager = config_manager.admerge(contextual_config())
+    }
+    if let Some(global_path) = global_config_path() {
+        config_manager = config_manager.admerge(YamlWithRel::new(&global_path));
     }
     if let Some(file_name) = config_file.as_ref() {
         config_manager = config_manager.admerge(YamlWithRel::new(file_name.as_ref()))

@@ -14,7 +14,7 @@ pub struct Args {
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 
-    /// Disable read of contextual configurations (agent-cage.yaml in parent folder tree)
+    /// Disable read of contextual configurations (agent-cage.yaml / .agent-cage.yaml in parent folder tree)
     #[arg(long, global = true)]
     no_contextual_config: bool,
 
