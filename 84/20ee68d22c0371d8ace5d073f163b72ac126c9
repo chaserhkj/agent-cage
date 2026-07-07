@@ -1,0 +1,14 @@
+src/args.rs
+  h_8d23b84102cdcd 127-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "8420ee68d22c0371d8ace5d073f163b72ac126c9",
+  "prompts": {},
+  "humans": {
+    "h_8d23b84102cdcd": {
+      "author": "Chaser Huang <huangkangjing@gmail.com>"
+    }
+  }
+}
