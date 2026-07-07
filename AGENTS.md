@@ -1,243 +1,72 @@
 # AGENTS.md - Agent Cage Development Guide
 
-## Overview
-
-Agent Cage is a Rust CLI tool that executes AI coding agents within an isolated container environment using Podman. It provides configurable profiles, multiple isolation modes, and secure sandboxing for agent operations.
-
-## Project Structure
-
-```
-/work
-├── Cargo.toml           # Rust package manifest
-├── src/
-│   ├── main.rs          # Entry point
-│   ├── args.rs          # CLI argument parsing (clap)
-│   ├── config.rs        # Configuration loading (figment)
-│   ├── engine.rs        # Container engine execution
-│   ├── rel_provider.rs  # Relative path provider for config
-│   ├── utils.rs         # Utility functions
-│   └── defaults.yaml    # Default configuration
-└── README.md
-```
-
-## Build, Lint, and Test Commands
-
-### Building the Project
+## Build, Lint, Test
 
 ```bash
-# Debug build
-cargo build
-
-# Release build (recommended for installation)
-cargo build --release
-
-# Build with specific number of parallel jobs
-cargo build --release -j 4
+cargo build --release         # release build (Nix builds via `nix build`)
+cargo clippy -- -D warnings   # lint with warnings as errors
+cargo fmt -- --check          # check formatting
+cargo test                    # no tests exist yet — add #[cfg(test)] in src/
 ```
 
-### Linting and Formatting
+Do **not** run the application autonomously (requires Podman/krun sandboxing).
 
-```bash
-# Run clippy lints
-cargo clippy
+## Config Layering (priority ascending)
 
-# Run clippy with warnings as errors
-cargo clippy -- -D warnings
+1. Embedded `src/defaults.yaml`
+2. Contextual: `agent-cage.yaml` / `.agent-cage.yaml` in current or parent dirs (toggled by `--no-contextual-config`)
+3. Global: `~/.config/agent-cage.yaml`
+4. User-provided: `--config <path>` (toggled by `--no-default-config`)
 
-# Format code
-cargo fmt
+`--config`, `--no-contextual-config`, `--no-default-config`, and `--dry-run` are global flags (usable before subcommand).
 
-# Check formatting without making changes
-cargo fmt -- --check
+## CLI Structure
+
+```
+agent-cage [global flags] run [<profile>] [<instance_name>] [run flags]
+agent-cage [global flags] cleanup
 ```
 
-### Running Tests
+Default profile: `default`. Instance name is appended last (no flag). See `src/args.rs:40`.
 
-```bash
-# Run all tests
-cargo test
+## Recent Features
 
-# Run a single test by name
-cargo test test_name
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--mode` | `-m` | OpMode enum: `disable`, `read-write`, `read-only`, `tmp-overlay`, `tmp-overlay-git` (default), `isolated-git-repo` |
+| `--runtime` | `-r` | Default: `krun` |
+| `--terminal-connection-type` | `-t` | `direct` PTY (unstable across krun) or `telnet` (default, requires busybox) |
+| `--telnet-bind` | `-T` | Default: `127.0.0.1:2323` |
+| `--command` | `-C` | Override command (shell-line parsed) |
+| `--wrapper-command` | `-W` | Prepend wrappers before command execution |
+| `--entrypoint` | `-N` | Override container entrypoint |
+| `--volumes` | `-v` | Extra volumes (env var substitution via `subst`) |
+| `--envs` | `-e` | Extra env vars |
+| `--env-file` | `-E` | Read env file |
+| `--hide-fs` | `-H` | Paths (relative to CWD) concealed via anonymous volumes, overlaid last |
 
-# Run tests with output displayed
-cargo test -- --nocapture
+## Relative Paths in YAML
 
-# Run doc tests
-cargo test --doc
+Use `!REL!` in config values — it's replaced with the directory of the YAML file. Implemented in `src/rel_provider.rs` via `YamlWithRel`.
+
+## Architecture Notes
+
+- **Entrypoint**: `src/main.rs:11` — parses `Args`, calls `args.exec()`.
+- **Profile resolution**: `config.rs:25-41` — merges profile with `global:` block from config hierarchy.
+- **Engine config resolution**: `engine.rs:237-266` — layered: base() ← CmdLineEngineConfig defaults (from profile) ← CLI overrides.
+- **OpMode volume/working-dir logic**: `args.rs:168-196` — each variant maps to specific volume mounts and workdir.
+- **Shell scripts**: embedded via `include_str!()` (`prepare-isolated-git-repo.sh`, `cleanup-isolated-git-repo.sh`).
+- **Nix**: `flake.nix` builds via `package.nix`; nixpkgs points to `nixpkgs-unstable`.
+
+## Config YAML Conventions
+
+```yaml
+profiles:
+  my-agent:
+    image: docker.io/author/my-agent
+    volumes:
+      - ~/.config/my-agent:/root/.config/my-agent:ro
+  # global: block under profiles merges into every profile's CmdLineEngineConfig
 ```
 
-Note: This project currently has no test suite. When adding tests, place them in `src/` with `#[cfg(test)]` modules or in a `tests/` directory.
-
-### Running the Application
-
-Agents SHOULD NOT attempt to run this application autonomously, since it requires sandboxing facilities and is most likely to fail when run from agentic contexts.
-
-Focus on running unit tests only. When the user asks you to run the application or do end to end tests, kindly remind them that this application need to be end tested manually.
-
-## Code Style Guidelines
-
-### General Principles
-
-- Use Rust 2024 edition (set in Cargo.toml)
-- Prefer explicit error handling with `anyhow::Result`
-- Keep functions small and focused
-- Add doc comments for public APIs
-
-### Imports
-
-```rust
-// Standard library imports first
-use std::path::Path;
-
-// Then external crate imports (alphabetical)
-use anyhow::{Context, Result};
-use clap::Parser;
-
-// Then local imports
-use crate::config::Config;
-```
-
-### Formatting
-
-- Use 4 spaces for indentation (Rust default)
-- Maximum line length: 100 characters (soft guideline)
-- Use trailing commas in struct literals and match arms
-- Keep related items together
-
-### Types and Naming
-
-```rust
-// Types: PascalCase
-struct Profile { ... }
-enum OpMode { ... }
-type Result<T> = anyhow::Result<T>;
-
-// Functions and variables: snake_case
-fn get_merged_profile(&self, name: &str) -> Option<Profile> {
-    let mut config = Vec::new();
-}
-
-// Constants: SCREAMING_SNAKE_CASE
-const MAX_RETRY_COUNT: u32 = 3;
-
-// Enums variants: PascalCase
-pub enum OpMode {
-    Disable,
-    ReadWrite,
-    TmpOverlay,
-}
-```
-
-### Error Handling
-
-- Use `anyhow::Result<T>` for application code
-- Use `.context()` to add context to errors
-- Return early on errors when possible
-
-```rust
-fn example() -> Result<()> {
-    let config = parse_config()
-        .context("Failed to parse configuration")?;
-    Ok(())
-}
-```
-
-### Structs and Enums
-
-- Use `#[derive(Debug, Clone, Serialize, Deserialize)]` for data structures
-- Use `#[skip_serializing_none]` for optional fields in serialized structs
-- Use `#[serde(flatten)]` for flattening nested configs
-
-```rust
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Config {
-    profiles: HashMap<String, Profile>,
-    #[serde(flatten)]
-    pub cmd_line_config_defaults: CmdLineEngineConfig,
-}
-```
-
-### CLI Arguments
-
-- Use `clap` with derive macros
-- Group related arguments with `#[command(flatten)]`
-- Use `ValueEnum` for enum-like arguments
-
-```rust
-#[derive(Parser, Debug)]
-#[clap(author, version, about)]
-pub struct Args {
-    #[arg(short, long)]
-    config: Option<PathBuf>,
-    
-    #[command(subcommand)]
-    sub_command: SubCommand,
-}
-```
-
-### Macros
-
-- Use existing macros (like `define_resolvable_struct!` in args.rs) for repetitive patterns
-- Keep macro invocations clean and well-documented
-
-### Configuration
-
-- Use `figment` for configuration with multiple providers
-- Support layering: default → contextual → user config
-- Use YAML for configuration files
-
-### Container Engine
-
-- Currently only supports Podman
-- Runtime defaults to `krun`
-- Use builder pattern for `EngineConfig`
-
-```rust
-EngineConfig {
-    image: self.image.to_owned(),
-    name: None,
-    cmd_line_config: parsed_config.resolve(&self.cmd_line_config_defaults)?,
-    ephemeral: false,
-}
-```
-
-### Shell Scripts
-
-- Place helper scripts in `src/` and include with `include_str!()`
-- Use `utils::run_in_foreground()` to execute external commands
-
-## Dependencies
-
-Key dependencies (check Cargo.toml for versions):
-- `anyhow` - Flexible error handling
-- `clap` - CLI argument parsing
-- `figment` - Configuration management
-- `serde` / `serde_with` - Serialization
-- `shell-words` - Shell command parsing
-- `subst` - Environment variable substitution
-
-## Common Development Tasks
-
-### Adding a New Profile
-
-1. Add profile to `src/defaults.yaml`
-2. Define fields in `config.rs` `Profile` struct
-3. Add CLI args in `args.rs` if needed
-
-### Adding a New Operation Mode
-
-1. Add variant to `OpMode` enum in `args.rs`
-2. Implement `to_volume_mounts()` and `to_work_dir()`
-3. Handle mode in `engine.rs`
-
-### Adding a New CLI Command
-
-1. Add variant to `SubCommand` enum in `args.rs`
-2. Implement execution logic in `Args::exec()`
-
-## Notes
-
-- This project uses Podman as the container runtime
-- Default operation mode is `tmp-overlay-git` for safety
-- Terminal connection defaults to telnet for krun compatibility
+The `Config` struct (`config.rs:19-23`) has `profiles: HashMap<String, Profile>` and an optional `global: CmdLineEngineConfig` — each `Profile` carries its own `cmd_line_config_defaults: CmdLineEngineConfig`.
