@@ -1,0 +1,19 @@
+src/prepare-isolated-git-repo.sh
+  s_a980904c301dd4::t_93d91eac3f8633 4-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "79476d207fc154021d21d4a87debaded9f411f3d",
+  "prompts": {},
+  "sessions": {
+    "s_a980904c301dd4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0c0b6930dffec0iIAPq0fKG1aO",
+        "model": "openrouter/deepseek/deepseek-v4-flash"
+      },
+      "human_author": "Chaser Huang <huangkangjing@gmail.com>"
+    }
+  }
+}
