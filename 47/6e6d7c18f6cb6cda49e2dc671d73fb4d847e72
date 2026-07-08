@@ -1,0 +1,14 @@
+src/prepare-isolated-git-repo.sh
+  h_8d23b84102cdcd 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "476e6d7c18f6cb6cda49e2dc671d73fb4d847e72",
+  "prompts": {},
+  "humans": {
+    "h_8d23b84102cdcd": {
+      "author": "Chaser Huang <huangkangjing@gmail.com>"
+    }
+  }
+}
