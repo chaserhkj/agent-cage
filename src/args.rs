@@ -31,6 +31,7 @@ pub struct Args {
 }
 
 #[derive(Subcommand, Debug)]
+#[allow(clippy::large_enum_variant)]
 enum SubCommand {
     /// Run an ephemeral sandbox that is removed at exit
     Run {
@@ -42,7 +43,14 @@ enum SubCommand {
     },
     /// Cleans up isolated git repo as created by isolated-git-repo
     /// mode
-    Cleanup,
+    Cleanup {
+        /// Path to the isolated git repo directory, default: ./.agent-cage-repo
+        #[arg(long, default_value = "./.agent-cage-repo")]
+        isolated_repo_path: String,
+        /// Remote name for the isolated git repo, default: agent-cage
+        #[arg(long, default_value = "agent-cage")]
+        isolated_repo_remote: String,
+    },
 }
 
 /// Common args for creating a sandbox
@@ -127,6 +135,12 @@ define_resolvable_struct! {
         /// Paths relative to the working directory to conceal with anonymous volumes
         #[arg[short = 'H', long]]
         hide_fs: Vec<String>,
+        /// Path to the isolated git repo directory, default: ./.agent-cage-repo
+        #[arg(long)]
+        isolated_repo_path: String,
+        /// Remote name for the isolated git repo, default: agent-cage
+        #[arg(long)]
+        isolated_repo_remote: String,
     }
 }
 
@@ -181,9 +195,7 @@ impl OpMode {
                 ".:/work".into(),
                 "./.git:/work/.git:O".into()
             ],
-            Self::IsolatedGitRepo => vec![
-                "./.agent-cage-repo:/work".into()
-            ]
+            Self::IsolatedGitRepo => vec![], // volume mount added in engine.rs with configured path
         }
     }
     pub fn to_work_dir(self) -> Option<String> {
@@ -231,10 +243,17 @@ impl Args {
                     final_engine_config.run()?;
                 }
             },
-            SubCommand::Cleanup => {
-                utils::run_in_foreground("/bin/sh", [
-                    "-c", ISOLATED_GIT_REPO_CLEANUP_SCRIPT
-                ], true).context("Call isolated git repo cleanup script")?;
+            SubCommand::Cleanup {
+                isolated_repo_path,
+                isolated_repo_remote,
+            } => {
+                let repo_path = format!("ISOLATED_REPO_PATH={}", isolated_repo_path);
+                let repo_remote = format!("ISOLATED_REPO_REMOTE={}", isolated_repo_remote);
+                let args: Vec<&str> = vec![
+                    &repo_path, &repo_remote,
+                    "/bin/sh", "-c", ISOLATED_GIT_REPO_CLEANUP_SCRIPT,
+                ];
+                utils::run_in_foreground("/usr/bin/env", args, true).context("Call isolated git repo cleanup script")?;
             }
         }
         Ok(())

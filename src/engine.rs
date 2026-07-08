@@ -117,7 +117,13 @@ impl EngineConfig {
     pub fn run_prepare(&self) -> Result<()> {
         match self.cmd_line_config.mode {
             OpMode::IsolatedGitRepo => {
-                run_in_foreground("/bin/sh", ["-c", ISOLATED_GIT_REPO_PREPARE_SCRIPT], false)
+                let repo_path = format!("ISOLATED_REPO_PATH={}", self.cmd_line_config.isolated_repo_path);
+                let repo_remote = format!("ISOLATED_REPO_REMOTE={}", self.cmd_line_config.isolated_repo_remote);
+                let args: Vec<&str> = vec![
+                    &repo_path, &repo_remote,
+                    "/bin/sh", "-c", ISOLATED_GIT_REPO_PREPARE_SCRIPT,
+                ];
+                run_in_foreground("/usr/bin/env", args, false)
             }
             _ => {Ok(())}
         }
@@ -159,6 +165,9 @@ impl From<EngineConfig> for EngineArgs {
             .map(|s| sub_env(s))
             .collect();
         let mut volumes = config.cmd_line_config.mode.to_volume_mounts();
+        if config.cmd_line_config.mode == OpMode::IsolatedGitRepo {
+            volumes.push(format!("{}:/work", config.cmd_line_config.isolated_repo_path));
+        }
         volumes.extend(ext_volumes);
         // Append hide-fs entries as anonymous volumes at the end to overlay on top
         volumes.extend(
@@ -249,6 +258,8 @@ impl CmdLineEngineConfig {
             env_file: Some(None),
             entrypoint: Some(None),
             hide_fs: Some(Vec::new()),
+            isolated_repo_path: Some("./.agent-cage-repo".into()),
+            isolated_repo_remote: Some("agent-cage".into()),
         }
     }
     /// Resolves command line engine config from, in priority ascending order:
