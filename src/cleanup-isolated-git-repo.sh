@@ -1,3 +1,3 @@
 set -x
-rm -rf ./agent-cage-repo
-git remote remove agent-cage-repo
+rm -rf ./.agent-cage-repo
+git remote remove agent-cage
