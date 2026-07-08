@@ -12,3 +12,9 @@ mkdir "$REPO_PATH"
 )
 git remote add "$REMOTE_NAME" "$REPO_PATH"
 git push "$REMOTE_NAME" main
+
+GIT_DIR=$(git rev-parse --git-dir)
+EXCLUDE_FILE="$GIT_DIR/info/exclude"
+mkdir -p "$(dirname "$EXCLUDE_FILE")"
+touch "$EXCLUDE_FILE"
+echo "$REPO_PATH/ # agent-cage-isolated-repo" >> "$EXCLUDE_FILE"
